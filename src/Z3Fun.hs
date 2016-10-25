@@ -55,6 +55,32 @@ data BoolUnOp = BoolNot
 
 data Z3Env = Z3Env { var_id :: Int }
 
+type Z3 = State Z3Env
+
+next_var :: Z3 Int
+next_var = var_id <$> get <* modify (\(Z3Env i) -> Z3Env $ i + 1)
+
+run_z3 :: Z3 a -> a
+run_z3 = fst . flip runState (Z3Env 0)
+
+word :: Z3 (AST (BitVec n))
+word = Var <$> next_var
+
+word8 :: Z3 (AST (BitVec 8))
+word8 = word
+
+word16 :: Z3 (AST (BitVec 16))
+word16 = word
+
+word32 :: Z3 (AST (BitVec 32))
+word32 = word
+
+word64 :: Z3 (AST (BitVec 64))
+word64 = word
+
+word128 :: Z3 (AST (BitVec 128))
+word128 = word
+
 {-
 main = do
     prove f
