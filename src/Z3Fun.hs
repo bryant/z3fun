@@ -2,8 +2,8 @@
 
 module Z3Fun where
 
-import GHC.TypeLits
-import Control.Monad.Trans.State
+import GHC.TypeLits (KnownNat, Nat)
+import Control.Monad.Trans.State (State)
 
 data BitVec (n :: Nat)
 
