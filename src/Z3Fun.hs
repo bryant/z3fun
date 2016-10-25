@@ -1,5 +1,5 @@
 {-# LANGUAGE GADTs, KindSignatures, DataKinds, ScopedTypeVariables #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleInstances, RecordWildCards #-}
 
 module Z3Fun where
 
@@ -7,6 +7,7 @@ import GHC.TypeLits (KnownNat, Nat, natVal)
 import Control.Monad.Trans.State (State, get, modify, runState)
 import Data.Word (Word64)
 import Data.Proxy (Proxy(..))
+import Prelude hiding (and, or, not)
 
 data BitVec (n :: Nat)
 
@@ -64,6 +65,7 @@ data BoolUnOp = BoolNot
 data Z3Env
     = Z3Env
     { preconditions :: [AST Bool]
+    , vars :: [(Int, String)]
     , var_id :: Int
     }
 
@@ -72,11 +74,18 @@ type Z3 = State Z3Env
 next_var :: Z3 Int
 next_var = var_id <$> get <* modify (\z -> z { var_id = var_id z + 1})
 
-run_z3 :: Z3 a -> a
-run_z3 = fst . flip runState (Z3Env [] 0)
+bool :: Z3 (AST Bool)
+bool = Var . var_id <$> get <* modify f
+    where
+    f z@Z3Env{..} = z { var_id = var_id + 1, vars = (var_id, "Bool") : vars }
 
-word :: Z3 (AST (BitVec n))
-word = Var <$> next_var
+word :: forall n. KnownNat n => Z3 (AST (BitVec n))
+word = Var . var_id <$> get <* modify f
+    where
+    f z@Z3Env{..} =
+        z { var_id = var_id + 1
+          , vars = (var_id, "(_ BitVec " ++ show size ++ ")") : vars }
+    size = natVal (Proxy :: Proxy n)
 
 word8 :: Z3 (AST (BitVec 8))
 word8 = word
@@ -165,11 +174,73 @@ term2 a b = terms [to_smt a, to_smt b]
 term3 :: (ToSMT a, ToSMT b, ToSMT c) => a -> b -> c -> String
 term3 a b c = terms [to_smt a, to_smt b, to_smt c]
 
-{-
-main = do
-    prove f
+(.==) :: KnownNat n => AST (BitVec n) -> AST (BitVec n) -> AST Bool
+(.==) = BitCmp BitEq
+
+(==>) :: [AST Bool] -> AST Bool -> Z3 (AST Bool)
+pre ==> result = mapM_ suppose pre >> return result
+
+and = BoolBinOp BoolAnd
+or = BoolBinOp BoolOr
+xor = BoolBinOp BoolXor
+not = BoolUnOp BoolNot
+
+suppose :: AST Bool -> Z3 ()
+suppose b = modify $ \z -> z { preconditions = b : preconditions z }
+
+example = do
+    x <- word64
+    c0 <- word64
+    c1 <- word64
+    suppose $ x .== ((x <<< c1) >>> c1)
+    return $ ((x <<< c1) > c0) `equiv` (x > (c0 >>> c1))
     where
-    f x c0 c1 = c0 > 0 && x == (x << c0) >> c0 ==>
-                (x << c0) > c1 <==> x > (c1 >> c0)
-        where (>) = ugt
--}
+    (>) = BitCmp BitUgt
+    (>>>) = BitBinOp BitLShr
+    (<<<) = BitBinOp BitShl
+    equiv = BoolBinOp BoolEq
+
+instance KnownNat n => Num (AST (BitVec n)) where
+    fromInteger n = BitConst $ fromIntegral n
+    (+) = BitBinOp BitAdd
+    (-) = BitBinOp BitSub
+    (*) = BitBinOp BitMul
+
+class Provable t where compile :: t -> Z3 (AST Bool)
+
+instance Provable (Z3 (AST Bool)) where
+    compile = id
+
+instance Provable (AST Bool) where
+    compile t = return t
+
+instance Provable result => Provable (AST Bool -> result) where
+    compile f = bool >>= compile . f
+
+instance (KnownNat n, Provable result) => Provable (AST (BitVec n) -> result) where
+    compile f = word >>= compile . f
+
+zassert x = terms ["assert", to_smt x]
+zdeclare vid ty = terms ["declare-const", "x_" ++ show vid, ty]
+
+prove :: Provable t => t -> String
+prove proof = unlines [declares, pre, result, terms ["check-sat"]]
+    where
+    (resbool, env) = runState (compile proof) (Z3Env [] [] 0)
+    declares = unlines . map (uncurry zdeclare) $ vars env
+    pre = unlines . map zassert $ preconditions env
+    result = zassert $ BoolUnOp BoolNot resbool
+
+llvm_D25913 :: AST (BitVec 128) -> AST (BitVec 128) -> AST (BitVec 128)
+            -> Z3 (AST Bool)
+llvm_D25913 x c0 c1 =
+    [c0 > 0, (x .== ((x <<< c0) >>> c0))] ==>
+            (((x <<< c0) > c1) `equiv` (x > (c1 >>> c0)))
+    where
+    (>) = BitCmp BitUgt
+    (>>>) = BitBinOp BitLShr
+    (<<<) = BitBinOp BitShl
+    equiv = BoolBinOp BoolEq
+
+main = do
+    writeFile "llvm_D25913" $ prove llvm_D25913
