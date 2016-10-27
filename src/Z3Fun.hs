@@ -208,27 +208,27 @@ instance KnownNat n => Num (AST (BitVec n)) where
     (-) = BitBinOp BitSub
     (*) = BitBinOp BitMul
 
-class Provable t where compile :: t -> Z3 (AST Bool)
+class Provable t where prov_ :: t -> Z3 (AST Bool)
 
 instance Provable (Z3 (AST Bool)) where
-    compile = id
+    prov_ = id
 
 instance Provable (AST Bool) where
-    compile t = return t
+    prov_ t = return t
 
 instance Provable result => Provable (AST Bool -> result) where
-    compile f = bool >>= compile . f
+    prov_ f = bool >>= prov_ . f
 
 instance (KnownNat n, Provable result) => Provable (AST (BitVec n) -> result) where
-    compile f = word >>= compile . f
+    prov_ f = word >>= prov_ . f
 
 zassert x = terms ["assert", to_smt x]
 zdeclare vid ty = terms ["declare-const", "x_" ++ show vid, ty]
 
-prove :: Provable t => t -> String
-prove proof = unlines [push, declares, pre, result, sat, getmodel, pop]
+compile :: Provable t => t -> String
+compile proof = unlines [push, declares, pre, result, sat, getmodel, pop]
     where
-    (resbool, env) = runState (compile proof) (Z3Env [] [] 0)
+    (resbool, env) = runState (prov_ proof) (Z3Env [] [] 0)
     declares = unlines . map (uncurry zdeclare) $ vars env
     pre = unlines . map zassert $ preconditions env
     result = zassert $ BoolUnOp BoolNot resbool
@@ -249,4 +249,4 @@ llvm_D25913 x c0 c1 =
     equiv = BoolBinOp BoolEq
 
 main = do
-    writeFile "llvm_D25913" $ prove llvm_D25913
+    writeFile "llvm_D25913" $ compile llvm_D25913
