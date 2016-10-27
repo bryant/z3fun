@@ -174,9 +174,11 @@ term2 a b = terms [to_smt a, to_smt b]
 term3 :: (ToSMT a, ToSMT b, ToSMT c) => a -> b -> c -> String
 term3 a b c = terms [to_smt a, to_smt b, to_smt c]
 
+infixl 4 .==
 (.==) :: KnownNat n => AST (BitVec n) -> AST (BitVec n) -> AST Bool
 (.==) = BitCmp BitEq
 
+infixl 1 ==>
 (==>) :: [AST Bool] -> AST Bool -> Z3 (AST Bool)
 pre ==> result = mapM_ suppose pre >> return result
 
