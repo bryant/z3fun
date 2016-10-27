@@ -188,9 +188,12 @@ infixl 1 ==>
 (==>) :: Provable t => [AST Bool] -> t -> Z3 (AST Bool)
 pre ==> rest = mapM_ suppose pre >> prov_ rest
 
+and, or, xor :: (Provable t, Provable r) => t -> r -> Z3 ZBool
 and = BoolBinOp BoolAnd
-or = BoolBinOp BoolOr
-xor = BoolBinOp BoolXor
+or a b = BoolBinOp BoolOr <$> prov_ a <*> prov_ b
+xor a b = BoolBinOp BoolXor <$> prov_ a <*> prov_ b
+
+not :: Provable t => t -> Z3 ZBool
 not = BoolUnOp BoolNot
 
 suppose :: AST Bool -> Z3 ()
