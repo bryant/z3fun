@@ -62,6 +62,10 @@ data BoolBinOp
 
 data BoolUnOp = BoolNot
 
+type BV n = AST (BitVec n)
+
+type ZBool = AST Bool
+
 data Z3Env
     = Z3Env
     { preconditions :: [AST Bool]
