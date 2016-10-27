@@ -185,8 +185,8 @@ infixl 4 .==
 (.==) = BitCmp BitEq
 
 infixl 1 ==>
-(==>) :: [AST Bool] -> AST Bool -> Z3 (AST Bool)
-pre ==> result = mapM_ suppose pre >> return result
+(==>) :: Provable t => [AST Bool] -> t -> Z3 (AST Bool)
+pre ==> rest = mapM_ suppose pre >> prov_ rest
 
 and = BoolBinOp BoolAnd
 or = BoolBinOp BoolOr
