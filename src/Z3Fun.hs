@@ -267,6 +267,9 @@ but_ule_can_transform_to_ult (x :: BV 8) c s =
         lhs = ((x <<< s) `op` c)
         rhs = x `op` (((c - 1) >>> s) + 1)
 
+because_of_ule_ult_identity (a :: BV 8) b =
+    [b `ugt` 0] ==> (a `ule` (b - 1)) `equiv` (a `ult` b)
+
 ult, ugt, uge, ule :: KnownNat n => BV n -> BV n -> ZBool
 ult = BitCmp BitUlt
 ugt = BitCmp BitUgt
