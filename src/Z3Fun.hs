@@ -226,12 +226,16 @@ zassert x = terms ["assert", to_smt x]
 zdeclare vid ty = terms ["declare-const", "x_" ++ show vid, ty]
 
 prove :: Provable t => t -> String
-prove proof = unlines [declares, pre, result, terms ["check-sat"]]
+prove proof = unlines [push, declares, pre, result, sat, getmodel, pop]
     where
     (resbool, env) = runState (compile proof) (Z3Env [] [] 0)
     declares = unlines . map (uncurry zdeclare) $ vars env
     pre = unlines . map zassert $ preconditions env
     result = zassert $ BoolUnOp BoolNot resbool
+    sat = terms ["check-sat"]
+    getmodel = terms ["get-model"]
+    push = terms ["push"]
+    pop = terms ["pop"]
 
 llvm_D25913 :: AST (BitVec 128) -> AST (BitVec 128) -> AST (BitVec 128)
             -> Z3 (AST Bool)
