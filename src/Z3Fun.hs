@@ -8,6 +8,8 @@ import Control.Monad.Trans.State (State, get, modify, runState)
 import Data.Word (Word64)
 import Data.Proxy (Proxy(..))
 import Prelude hiding (and, or, not)
+import System.Process (runInteractiveProcess, terminateProcess)
+import GHC.IO.Handle (hGetContents, hPutStr)
 
 data BitVec (n :: Nat)
 
@@ -264,6 +266,14 @@ infixl 7 >>>
 (>>>) = BitBinOp BitLShr
 infixl 7 <<<
 (<<<) = BitBinOp BitShl
+
+prove :: Provable t => t -> IO ()
+prove proof = do
+    let subproc = runInteractiveProcess "./z3" ["-in"] Nothing Nothing
+    (stdin, stdout, _, p) <- subproc
+    hPutStr stdin $ compile proof
+    hGetContents stdout >>= putStrLn
+    terminateProcess p
 
 main = do
     writeFile "llvm_D25913" $ compile llvm_D25913
