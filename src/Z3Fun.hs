@@ -243,14 +243,13 @@ compile proof = unlines [push, declares, pre, result, sat, getmodel, pop]
     push = terms ["push"]
     pop = terms ["pop"]
 
-llvm_D25913 :: AST (BitVec 128) -> AST (BitVec 128) -> AST (BitVec 128)
-            -> Z3 (AST Bool)
+llvm_D25913 :: BV 128 -> BV 128 -> BV 128 -> ZBool
 llvm_D25913 x c0 c1 =
         [c0 > 0, nuw] ==> (((x <<< c1) < c0) `equiv` (x < (c0 >>> c1)))
     where
     nuw = x .== ((x <<< c1) >>> c1)
-    (>) = BitCmp BitUgt
-    (<) = BitCmp BitUlt
+    (>) = ugt
+    (<) = ult
 
 ult, ugt, uge, ule :: KnownNat n => BV n -> BV n -> ZBool
 ult = BitCmp BitUlt
