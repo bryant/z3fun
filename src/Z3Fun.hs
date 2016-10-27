@@ -244,13 +244,26 @@ compile proof = unlines [push, declares, pre, result, sat, getmodel, pop]
 llvm_D25913 :: AST (BitVec 128) -> AST (BitVec 128) -> AST (BitVec 128)
             -> Z3 (AST Bool)
 llvm_D25913 x c0 c1 =
-    [c0 > 0, (x .== ((x <<< c0) >>> c0))] ==>
-            (((x <<< c0) > c1) `equiv` (x > (c1 >>> c0)))
+        [c0 > 0, nuw] ==> (((x <<< c1) < c0) `equiv` (x < (c0 >>> c1)))
     where
+    nuw = x .== ((x <<< c1) >>> c1)
     (>) = BitCmp BitUgt
-    (>>>) = BitBinOp BitLShr
-    (<<<) = BitBinOp BitShl
-    equiv = BoolBinOp BoolEq
+    (<) = BitCmp BitUlt
+
+ult, ugt, uge, ule :: KnownNat n => BV n -> BV n -> ZBool
+ult = BitCmp BitUlt
+ugt = BitCmp BitUgt
+uge = BitCmp BitUge
+ule = BitCmp BitUle
+
+equiv :: ZBool -> ZBool -> ZBool
+equiv = BoolBinOp BoolEq
+
+(>>>), (<<<) :: KnownNat n => BV n -> BV n -> BV n
+infixl 7 >>>
+(>>>) = BitBinOp BitLShr
+infixl 7 <<<
+(<<<) = BitBinOp BitShl
 
 main = do
     writeFile "llvm_D25913" $ compile llvm_D25913
