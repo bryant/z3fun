@@ -189,12 +189,12 @@ infixl 1 ==>
 pre ==> rest = mapM_ suppose pre >> prov_ rest
 
 and, or, xor :: (Provable t, Provable r) => t -> r -> Z3 ZBool
-and = BoolBinOp BoolAnd
+and a b = BoolBinOp BoolAnd <$> prov_ a <*> prov_ b
 or a b = BoolBinOp BoolOr <$> prov_ a <*> prov_ b
 xor a b = BoolBinOp BoolXor <$> prov_ a <*> prov_ b
 
 not :: Provable t => t -> Z3 ZBool
-not = BoolUnOp BoolNot
+not t = BoolUnOp BoolNot <$> prov_ t
 
 suppose :: AST Bool -> Z3 ()
 suppose b = modify $ \z -> z { preconditions = b : preconditions z }
@@ -246,13 +246,26 @@ compile proof = unlines [push, declares, pre, result, sat, getmodel, pop]
     push = terms ["push"]
     pop = terms ["pop"]
 
-llvm_D25913 :: BV 128 -> BV 128 -> BV 128 -> ZBool
-llvm_D25913 x c0 c1 =
-        [c0 > 0, nuw] ==> (((x <<< c1) < c0) `equiv` (x < (c0 >>> c1)))
+nuw val shift = val .== (val <<< shift) >>> shift
+
+d25913_transform :: KnownNat n => (BV n -> BV n -> ZBool) -> BV n -> BV n
+                 -> BV n -> Z3 ZBool
+d25913_transform op x c shift =
+    [nuw x shift] ==> ((x <<< shift) `op` c) `equiv` (x `op` (c >>> shift))
+
+llvm_D25913 :: BV 8 -> BV 8 -> BV 8 -> Z3 ZBool
+llvm_D25913 x c s = d25913_transform ule x c s `and` d25913_transform ugt x c s
+
+ult_doesnt_work (x :: BV 8) c s = d25913_transform ult x c s
+
+but_ule_can_transform_to_ult (x :: BV 8) c s =
+        [c `ugt` 0] ==>
+            (d25913_transform' ult x c s `and` d25913_transform' uge x c s)
     where
-    nuw = x .== ((x <<< c1) >>> c1)
-    (>) = ugt
-    (<) = ult
+    d25913_transform' op x c s = [nuw x s] ==> lhs `equiv` rhs
+        where
+        lhs = ((x <<< s) `op` c)
+        rhs = x `op` (((c - 1) >>> s) + 1)
 
 ult, ugt, uge, ule :: KnownNat n => BV n -> BV n -> ZBool
 ult = BitCmp BitUlt
