@@ -92,20 +92,18 @@ data Z3Env
 
 type Z3 = State Z3Env
 
-next_var :: Z3 Int
-next_var = var_id <$> get <* modify (\z -> z { var_id = var_id z + 1})
+next_var :: String -> Z3 Int
+next_var tystr = var_id <$> get <* modify f
+    where
+    f z@Z3Env{..} = z { var_id = var_id + 1, vars = (var_id, tystr) : vars }
 
 bool :: Z3 (AST Bool)
-bool = Var . var_id <$> get <* modify f
-    where
-    f z@Z3Env{..} = z { var_id = var_id + 1, vars = (var_id, "Bool") : vars }
+bool = Var <$> next_var "Bool"
 
 word :: forall n. KnownNat n => Z3 (AST (BitVec n))
-word = Var . var_id <$> get <* modify f
+word = Var <$> next_var bvty
     where
-    f z@Z3Env{..} =
-        z { var_id = var_id + 1
-          , vars = (var_id, "(_ BitVec " ++ show size ++ ")") : vars }
+    bvty = "(_ BitVec " ++ show size ++ ")"
     size = natVal (Proxy :: Proxy n)
 
 word8 :: Z3 (AST (BitVec 8))
