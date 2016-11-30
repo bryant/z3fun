@@ -17,6 +17,10 @@ data AST :: * -> * where
     Var :: Int -> AST a  -- variable id
     BitConst :: KnownNat n => Word64 -> AST (BitVec n)
     BoolConst :: Bool -> AST Bool
+    IntConst :: Int -> AST Int
+    IntBinOp :: IntBinOp -> AST Int -> AST Int -> AST Int
+    IntUnOp :: IntUnOp -> AST Int -> AST Int
+    IntCmp :: IntCmp -> AST Int -> AST Int -> AST Bool
     BitBinOp :: KnownNat n => BitBinOp -> AST (BitVec n) -> AST (BitVec n)
              -> AST (BitVec n)
     BitUnOp :: KnownNat n => BitBinOp -> AST (BitVec n) -> AST (BitVec n)
@@ -63,6 +67,17 @@ data BoolBinOp
     | BoolEq  -- ^ logical equivalence
 
 data BoolUnOp = BoolNot
+
+data IntCmp = IntLe | IntLt | IntGe | IntGt | IntEq
+
+data IntUnOp = IntNeg | IntAbs
+
+data IntBinOp
+    = IntSub
+    | IntAdd
+    | IntMul
+    | IntDiv
+    | IntMod
 
 type BV n = AST (BitVec n)
 
@@ -130,6 +145,12 @@ instance ToSMT (AST Bool) where
     to_smt (BoolBinOp op lhs rhs) = term3 op lhs rhs
     to_smt (BoolUnOp op t) = term2 op t
     to_smt (Ite cond t f) = terms ["ite", to_smt cond, to_smt t, to_smt f]
+    to_smt (IntCmp cmp lhs rhs) = term3 cmp lhs rhs
+
+instance ToSMT (AST Int) where
+    to_smt (IntConst c) = show c
+    to_smt (IntBinOp op lhs rhs) = term3 op lhs rhs
+    to_smt (IntUnOp op t) = term2 op t
 
 instance ToSMT BitBinOp where
     to_smt BitAdd  = "bvadd"
@@ -161,6 +182,17 @@ instance ToSMT BoolBinOp where
     to_smt BoolImp = "=>"
     to_smt BoolEq  = "="
 
+instance ToSMT IntUnOp where
+    to_smt IntNeg = "-"
+    to_smt IntAbs= "abs"
+
+instance ToSMT IntBinOp where
+    to_smt IntSub = "-"
+    to_smt IntAdd = "+"
+    to_smt IntMul = "*"
+    to_smt IntDiv = "div"
+    to_smt IntMod = "mod"
+
 instance ToSMT BitCmp where
     to_smt BitUlt = "bvult"
     to_smt BitUgt = "bvugt"
@@ -171,6 +203,13 @@ instance ToSMT BitCmp where
     to_smt BitSle = "bvsle"
     to_smt BitSge = "bvsge"
     to_smt BitEq  = "="
+
+instance ToSMT IntCmp where
+    to_smt IntLe = "<="
+    to_smt IntLt = "<"
+    to_smt IntGe = ">="
+    to_smt IntGt = ">"
+    to_smt IntEq = "="
 
 terms xs = "(" ++ unwords xs ++ ")"
 
