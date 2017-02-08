@@ -23,7 +23,7 @@ data AST :: * -> * where
     IntCmp :: IntCmp -> AST Int -> AST Int -> AST Bool
     BitBinOp :: KnownNat n => BitBinOp -> AST (BitVec n) -> AST (BitVec n)
              -> AST (BitVec n)
-    BitUnOp :: KnownNat n => BitBinOp -> AST (BitVec n) -> AST (BitVec n)
+    BitUnOp :: KnownNat n => BitUnOp -> AST (BitVec n) -> AST (BitVec n)
     BitCmp :: KnownNat n => BitCmp -> AST (BitVec n) -> AST (BitVec n)
              -> AST Bool
     BoolBinOp :: BoolBinOp -> AST Bool -> AST Bool -> AST Bool
