@@ -45,6 +45,7 @@ data BitBinOp
     = BitAdd
     | BitSub
     | BitMul
+    | BitUDiv
     | BitURem
     | BitSRem
     | BitSMod
@@ -154,6 +155,7 @@ instance ToSMT BitBinOp where
     to_smt BitAdd  = "bvadd"
     to_smt BitSub  = "bvsub"
     to_smt BitMul  = "bvmul"
+    to_smt BitUDiv = "bvudiv"
     to_smt BitURem = "bvurem"
     to_smt BitSRem = "bvsrem"
     to_smt BitSMod = "bvsmod"
